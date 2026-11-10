@@ -1,0 +1,34 @@
+# 1. cp server/.env.example server/.env   and fill it in (APP_SECRET, PUBLIC_URL; see the file for the rest)
+# 2. docker compose up -d --build
+# 3. Create your administrator (prints a generated password once):
+#      docker compose exec linkhub node src/admin-cli.js create you@yourdomain.com --name "Your Name" --generate
+#    (If the container keeps restarting because no user exists yet, set ADMIN_EMAIL / ADMIN_PASSWORD in server/.env for the first start.)
+# The app is published on 127.0.0.1:4000 only - put Nginx (deploy/nginx.conf) in front of it for HTTPS.
+services:
+  linkhub:
+    build: .
+    restart: unless-stopped
+    env_file: ./server/.env
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      PORT: "4000"
+      HOST: "0.0.0.0"        # inside the container; the published port below is loopback-only on the host
+      TRUST_PROXY: "1"
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - linkhub-data:/data
+    # hardening: nothing writable except /data and /tmp, no extra privileges
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+
+volumes:
+  linkhub-data:

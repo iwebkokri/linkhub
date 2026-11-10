@@ -1,0 +1,55 @@
+# /etc/systemd/system/linkhub.service
+#   sudo useradd --system --home /var/www/linkhub --shell /usr/sbin/nologin linkhub
+#   sudo chown -R linkhub:linkhub /var/www/linkhub/server/data && sudo chmod 600 /var/www/linkhub/server/.env
+#   sudo chown linkhub:linkhub /var/www/linkhub/server/.env
+#   sudo systemctl daemon-reload && sudo systemctl enable --now linkhub
+#   journalctl -u linkhub -f
+#
+# The app runs as its own unprivileged user with almost no access to the rest of the machine,
+# so even a bug in the app cannot read your home folders, change the system, or open new network sockets.
+[Unit]
+Description=LinkHub link pages
+After=network.target
+
+[Service]
+Type=simple
+User=linkhub
+Group=linkhub
+WorkingDirectory=/var/www/linkhub/server
+EnvironmentFile=/var/www/linkhub/server/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=3
+
+# --- sandboxing ---
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/linkhub/server/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+UMask=0077
+
+# --- resource limits (a runaway process can't take the whole machine down) ---
+MemoryMax=512M
+TasksMax=256
+LimitNOFILE=8192
+
+[Install]
+WantedBy=multi-user.target

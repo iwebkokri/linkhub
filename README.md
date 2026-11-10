@@ -173,5 +173,3 @@ SECURITY.md            Security guide and VPS checklist
 - SQLite comfortably handles many businesses and millions of events on one VPS. Run a single server process, not a cluster.
 - Custom domains per business (e.g. `links.business-a.com`) aren't built in; every business lives under your one domain as `/<slug>`.
 - If a legitimate link is refused ("doesn't look like an Instagram address", "look-alike characters"), that's the anti-phishing rules: choose *Website* / *Other link*, or ask an administrator (`ALLOW_PUNYCODE_LINKS`, `BLOCKED_LINK_DOMAINS` in `.env`).
-#   l i n k h u b  
- 

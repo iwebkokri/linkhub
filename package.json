@@ -1,0 +1,16 @@
+{
+  "name": "linkhub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-business link-in-bio pages with one central admin panel",
+  "scripts": {
+    "install:all": "npm install && npm --prefix server install && npm --prefix client install",
+    "dev": "concurrently -n server,client -c blue,green \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "build": "npm --prefix client run build",
+    "start": "npm --prefix server start",
+    "seed:demo": "npm --prefix server run seed:demo"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}
