@@ -10,6 +10,7 @@ import LinksTab from './LinksTab.jsx';
 import ProfileTab from './ProfileTab.jsx';
 import AppearanceTab from './AppearanceTab.jsx';
 import AnalyticsTab from './AnalyticsTab.jsx';
+import ShareTab from './ShareTab.jsx';
 import TrackingTab from './TrackingTab.jsx';
 import TeamTab from './TeamTab.jsx';
 
@@ -146,6 +147,7 @@ export default function BusinessEditor() {
     { key: 'links', label: 'Links', badge: links.length },
     { key: 'profile', label: 'Profile' },
     { key: 'appearance', label: 'Appearance' },
+    { key: 'share', label: 'Share & QR' },
     { key: 'analytics', label: 'Analytics' },
     ...(isAdmin ? [{ key: 'tracking', label: 'Tracking codes' }, { key: 'team', label: 'Team', badge: data.memberIds?.length }] : []),
   ];
@@ -199,6 +201,7 @@ export default function BusinessEditor() {
             />
           )}
           {tab === 'appearance' && <AppearanceTab draft={draft} patch={patchDraft} />}
+          {tab === 'share' && <ShareTab business={business} />}
           {tab === 'analytics' && <AnalyticsTab businessId={business.id} />}
           {tab === 'tracking' && isAdmin && <TrackingTab draft={draft} patch={patchDraft} />}
           {tab === 'team' && isAdmin && <TeamTab businessId={business.id} memberIds={data.memberIds || []} setMemberIds={setMemberIds} />}

@@ -44,11 +44,14 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
+# a blocked system call returns an error instead of killing the process
+SystemCallErrorNumber=EPERM
 UMask=0077
 
 # --- resource limits (a runaway process can't take the whole machine down) ---
 MemoryMax=512M
 TasksMax=256
+CPUQuota=200%
 LimitNOFILE=8192
 
 [Install]

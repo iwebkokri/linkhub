@@ -1,5 +1,9 @@
+import { useState } from 'react';
+import { FaQrcode, FaShareNodes } from 'react-icons/fa6';
 import { PlatformIcon } from '../platforms.jsx';
 import { opensInNewTab, safeHref } from '../safeUrl.js';
+import QrSheet from './QrSheet.jsx';
+import ShareSheet from './ShareSheet.jsx';
 import './profile.css';
 
 function initials(name) {
@@ -14,11 +18,15 @@ function initials(name) {
   );
 }
 
+// each block rises in one after the other: --i is its place in the sequence (capped so a long list doesn't take forever)
+const rise = (i) => ({ '--i': Math.min(i, 14) });
+
 /**
- * The public page itself. Used both by the real page (/:slug) and by the live preview in the admin
- * (`embedded`), so what the editor sees is exactly what visitors get.
+ * The public page, designed as a phone-sized card: full-screen on a phone, a centred card with the theme
+ * colours around it on a desktop. Used by the real page (/:slug) and, `embedded`, by the live preview in the admin.
  */
-export default function ProfileView({ business, links, embedded = false, onLinkClick }) {
+export default function ProfileView({ business, links, embedded = false, onLinkClick, onShare }) {
+  const [sheet, setSheet] = useState(null); // null | 'share' | 'qr'
   const t = business.theme;
   const buttons = links.filter((l) => l.display === 'button');
   const icons = links.filter((l) => l.display === 'icon');
@@ -36,13 +44,13 @@ export default function ProfileView({ business, links, embedded = false, onLinkC
     `lt-shape-${t.buttonStyle}`,
     `lt-variant-${t.buttonVariant}`,
     embedded ? 'lt-embedded' : '',
-    business.coverUrl ? 'lt-has-cover' : '',
   ].join(' ');
 
-  const renderLink = (link, className, children) => (
+  const renderLink = (link, className, index, children) => (
     <a
       key={link.id}
-      className={className}
+      className={`${className} lt-rise`}
+      style={rise(index)}
       href={safeHref(link.url)}
       target={opensInNewTab(link.url) ? '_blank' : undefined}
       rel="noopener noreferrer"
@@ -57,42 +65,68 @@ export default function ProfileView({ business, links, embedded = false, onLinkC
     </a>
   );
 
+  const open = (which) => (e) => {
+    if (embedded) return e.preventDefault(); // inert inside the admin preview
+    setSheet(which);
+  };
+
   return (
     <div className={cls} style={style}>
-      {business.coverUrl && <div className="lt-cover" style={{ backgroundImage: `url("${business.coverUrl}")` }} />}
-      <main className="lt-inner">
-        <div className="lt-avatar">
-          {business.logoUrl ? <img src={business.logoUrl} alt={`${business.name} logo`} /> : <span>{initials(business.name)}</span>}
+      <main className="lt-card">
+        <div
+          className={`lt-hero ${business.coverUrl ? 'has-cover' : 'is-banner'}`}
+          style={business.coverUrl ? { backgroundImage: `url("${business.coverUrl}")` } : undefined}
+        >
+          <div className="lt-actions">
+            <button type="button" className="lt-action lt-rise" style={rise(0)} onClick={open('share')} aria-label="Share this page" title="Share" tabIndex={embedded ? -1 : 0}>
+              <FaShareNodes aria-hidden="true" />
+            </button>
+            <button type="button" className="lt-action lt-rise" style={rise(1)} onClick={open('qr')} aria-label="Show QR code" title="QR code" tabIndex={embedded ? -1 : 0}>
+              <FaQrcode aria-hidden="true" />
+            </button>
+          </div>
         </div>
-        <h1 className="lt-name">{business.name}</h1>
-        {business.tagline && <p className="lt-tagline">{business.tagline}</p>}
-        {business.bio && <p className="lt-bio">{business.bio}</p>}
 
-        {icons.length > 0 && (
-          <div className="lt-icons">
-            {icons.map((l) => renderLink(l, 'lt-icon', <PlatformIcon platform={l.platform} />))}
+        <div className="lt-body">
+          <div className="lt-avatar-wrap lt-pop" style={rise(0)}>
+            <div className="lt-avatar">
+              {business.logoUrl ? <img src={business.logoUrl} alt={`${business.name} logo`} /> : <span>{initials(business.name)}</span>}
+            </div>
           </div>
-        )}
+          <h1 className="lt-name lt-rise" style={rise(1)}>{business.name}</h1>
+          {business.tagline && <p className="lt-tagline lt-rise" style={rise(2)}>{business.tagline}</p>}
+          {business.bio && <p className="lt-bio lt-rise" style={rise(3)}>{business.bio}</p>}
 
-        {buttons.length > 0 && (
-          <div className="lt-links">
-            {buttons.map((l) =>
-              renderLink(
-                l,
-                'lt-link',
-                <>
-                  <span className="lt-link-icon">
-                    <PlatformIcon platform={l.platform} />
-                  </span>
-                  <span className="lt-link-title">{l.title}</span>
-                </>,
-              ),
-            )}
-          </div>
-        )}
+          {icons.length > 0 && (
+            <div className="lt-icons">
+              {icons.map((l, i) => renderLink(l, 'lt-icon', 4 + i, <PlatformIcon platform={l.platform} />))}
+            </div>
+          )}
 
-        {links.length === 0 && embedded && <p className="lt-empty">Links you add will appear here.</p>}
+          {buttons.length > 0 && (
+            <div className="lt-links">
+              {buttons.map((l, i) =>
+                renderLink(
+                  l,
+                  'lt-link',
+                  5 + icons.length + i,
+                  <>
+                    <span className="lt-link-icon">
+                      <PlatformIcon platform={l.platform} />
+                    </span>
+                    <span className="lt-link-title">{l.title}</span>
+                  </>,
+                ),
+              )}
+            </div>
+          )}
+
+          {links.length === 0 && embedded && <p className="lt-empty">Links you add will appear here.</p>}
+        </div>
       </main>
+
+      {!embedded && sheet === 'share' && <ShareSheet business={business} onClose={() => setSheet(null)} onShare={onShare} />}
+      {!embedded && sheet === 'qr' && <QrSheet business={business} onClose={() => setSheet(null)} />}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../api.js';
 import ProfileView from '../components/ProfileView.jsx';
-import { getConsent, hasTracking, initTracking, storeConsent, trackLinkClick } from '../tracking.js';
+import { getConsent, hasTracking, initTracking, storeConsent, trackLinkClick, trackShare } from '../tracking.js';
 import NotFound from './NotFound.jsx';
 
 // React StrictMode runs effects twice in development; this keeps a page load to one recorded view.
@@ -94,6 +94,7 @@ export default function PublicPage() {
           fetch(`/api/public/links/${link.id}/click`, { method: 'POST', keepalive: true }).catch(() => {});
           trackLinkClick(link, state.business);
         }}
+        onShare={(channel) => trackShare(channel, state.business)}
       />
       {needsConsent && consent === null && <ConsentBanner onChoose={choose} />}
     </>

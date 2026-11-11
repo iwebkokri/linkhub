@@ -143,6 +143,21 @@ export function trackLinkClick(link, business) {
   }
 }
 
+/** Forward a "share" of the page (which channel was used) to Google / Meta, if they are running. */
+export function trackShare(channel, business) {
+  try {
+    const params = { method: channel, content_type: 'link_page', item_id: business.slug, business: business.name };
+    if (loaded.ga4.size && window.gtag) {
+      window.gtag('event', 'share', params); // GA4's recommended "share" event
+    } else if (loaded.gtm.size && window.dataLayer) {
+      window.dataLayer.push({ event: 'share', ...params });
+    }
+    if (loaded.meta.size && window.fbq) window.fbq('trackCustom', 'Share', { method: channel, business: business.name });
+  } catch {
+    /* tracking must never break the page */
+  }
+}
+
 // ---- cookie / tracking consent ---------------------------------------------
 
 const CONSENT_KEY = 'lt_consent';

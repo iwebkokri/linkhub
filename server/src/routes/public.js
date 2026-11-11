@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import QRCode from 'qrcode';
 import { z } from 'zod';
+import { config } from '../config.js';
 import { counterLimiter } from '../limits.js';
 import { db } from '../db.js';
 import { serializeBusiness, serializeLink } from '../serializers.js';
@@ -47,6 +49,40 @@ router.get('/businesses/:slug', (req, res) => {
       return { id, platform, title, url, display };
     });
   res.json({ business: toPublicBusiness(row), links, tracking: publicTracking(row) });
+});
+
+// ---- QR code that opens this business' page ---------------------------------------------------
+// GET /api/public/businesses/:slug/qr?format=svg|png&size=128..2000&download=1
+// The code encodes  <your domain>/<slug>?utm_source=qr  so scans show up in Analytics as the source "qr".
+const QR_COLORS = { dark: '#000000', light: '#ffffff' }; // black on white: the most reliably scannable
+const qrCache = new Map(); // generated images by (format, size, address); tiny, and capped
+const QR_CACHE_MAX = 200;
+
+router.get('/businesses/:slug/qr', counterLimiter, async (req, res) => {
+  const row = activeBySlug.get(req.params.slug);
+  if (!row) throw new HttpError(404, 'This page could not be found');
+
+  const base = config.publicUrl || `${req.protocol}://${req.get('host')}`;
+  const target = `${base}/${row.slug}?utm_source=qr`;
+  const format = req.query.format === 'png' ? 'png' : 'svg';
+  const size = Math.min(Math.max(parseInt(req.query.size, 10) || 600, 128), 2000);
+
+  const key = `${format}:${size}:${target}`;
+  let body = qrCache.get(key);
+  if (!body) {
+    const opts = { margin: 2, errorCorrectionLevel: 'Q', color: QR_COLORS };
+    body = format === 'png'
+      ? await QRCode.toBuffer(target, { ...opts, width: size })
+      : await QRCode.toString(target, { ...opts, type: 'svg' });
+    if (qrCache.size >= QR_CACHE_MAX) qrCache.clear();
+    qrCache.set(key, body);
+  }
+
+  res.vary('Host');
+  res.set('Cache-Control', 'public, max-age=3600'); // overrides the router-wide no-cache: it only depends on slug + host
+  res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+  if (req.query.download) res.set('Content-Disposition', `attachment; filename="${row.slug}-qr.${format}"`);
+  res.type(format === 'png' ? 'image/png' : 'image/svg+xml').send(body);
 });
 
 const viewBody = z.object({

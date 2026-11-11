@@ -146,7 +146,7 @@ body { margin: 0; }
 
 /* tabs */
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; overflow-x: auto; }
-.tabs button { border: 0; background: transparent; font: inherit; font-weight: 600; font-size: 0.92rem; color: var(--ink2); padding: 10px 14px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tabs button { border: 0; background: transparent; font: inherit; font-weight: 600; font-size: 0.92rem; color: var(--ink2); padding: 10px 11px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .tabs button:hover { color: var(--ink); }
 .tabs button.is-on { color: var(--accent-hover); border-bottom-color: var(--accent); }
 .tab-badge { margin-left: 6px; background: rgba(11, 11, 11, 0.08); border-radius: 999px; padding: 0 7px; font-size: 0.75rem; }
@@ -331,3 +331,16 @@ body { margin: 0; }
 .nowrap { white-space: nowrap; }
 .cell-detail { max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8rem; color: var(--ink2); font-family: ui-monospace, Consolas, monospace; }
 .table-scroll.tall { max-height: 640px; }
+
+/* ============ Share & QR tab ============ */
+.share-grid { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { .share-grid { grid-template-columns: 1fr; } }
+.qr-card { text-align: center; }
+.qr-card .lt-qr-tile { margin: 14px auto 16px; }
+.row-gap.center { justify-content: center; }
+.link-box { display: flex; gap: 8px; }
+.main .link-box input { font-family: ui-monospace, Consolas, monospace; font-size: 0.85rem; }
+.idea-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.idea-chip { border: 1px solid rgba(11, 11, 11, 0.18); background: #fff; border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 0.82rem; color: var(--ink2); cursor: pointer; transition: background 0.12s, border-color 0.12s; }
+.idea-chip:hover { background: #f1f0ec; }
+.idea-chip.is-on { border-color: var(--accent); background: rgba(42, 120, 214, 0.1); color: #184f95; font-weight: 600; }
