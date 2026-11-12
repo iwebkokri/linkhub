@@ -6,6 +6,7 @@ import { useAuth } from './auth.jsx';
 import { useToast } from './toast.jsx';
 import { Chip, Modal, copyText, formatNumber } from './ui.jsx';
 import { RangePicker, StatTile, TrendChart } from './charts.jsx';
+import { LocationSection } from './locations.jsx';
 
 export const slugify = (s) =>
   s
@@ -147,6 +148,7 @@ export default function Dashboard() {
           <StatTile label="Click rate" value={totals && totals.views ? `${Math.round((totals.clicks / totals.views) * 1000) / 10}%` : '–'} hint="Clicks per view" />
         </div>
         {overview && <TrendChart daily={overview.daily} title="Traffic across your businesses" />}
+        {overview && <LocationSection locations={overview.locations} isAdmin={isAdmin} compact title="Top countries" />}
       </div>
 
       <h2 className="section-title">{businesses ? `${businesses.length} ${businesses.length === 1 ? 'business' : 'businesses'}` : 'Businesses'}</h2>

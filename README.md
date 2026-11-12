@@ -30,7 +30,8 @@ Every page view and every link click is stored as its own event, so each busines
 
 - **Per business:** page views, visitors, link clicks, click rate, a daily trend, where visitors came from (referring site or `?utm_source=` / `?ref=`), and device type.
 - **Per link:** clicks in the selected range (7 / 30 / 90 days), share of the business's clicks, all-time clicks, and a trend sparkline.
-- **Dashboard:** the same totals rolled up across every business you can access, plus a card per business.
+- **Where they are:** countries and cities (views and link clicks side by side), each link's strongest country, and a feed of the latest clicks ("Someone in Toronto, Ontario, Canada tapped Order online · Mobile · 3 minutes ago"). It is anonymous: device and approximate place, never a name or an IP address. See *Visitor location* below.
+- **Dashboard:** the same totals rolled up across every business you can access (including top countries), plus a card per business.
 
 Notes:
 - **Privacy:** no cookies and no IP addresses are stored. A "visitor" is a one-way hash that changes every day, so a person is counted once *per day* and can't be followed across days. "Visitors" over a range is the sum of each day's visitors.
@@ -39,6 +40,16 @@ Notes:
 - Deleting a link deletes its click history. **Hide** a link instead to keep the numbers.
 - Visits by the admins/team themselves are counted like anyone else's.
 - Behind Nginx, set `TRUST_PROXY=1` (already in the examples), otherwise every visitor looks like the proxy's IP.
+
+## Visitor location (where visits and clicks come from)
+
+- **How it works:** the visitor's IP address is looked up in a **database on your own server** (the free DB-IP City Lite, or MaxMind GeoLite2). Nothing is sent to an outside service, and the **IP address is never stored**: only the resulting country / region / city text. A lookup takes about 1.5 microseconds.
+- **Install the database once:** `cd server && npm run geoip:update` (about a 60 MB download; ~120 MB on disk and ~125 MB of memory in use). Refresh it monthly: on a Linux server `deploy/linkhub-geoip.timer` does that automatically, and a running server picks up the new file by itself, with no restart. Without the database nothing breaks; visits are just not placed.
+- **How much detail:** the admin setting **Tracking codes → Visitor location**: *Off / Country / Region / City* (default City). It is applied **when an event is recorded**, so "Off" means no location is stored at all. Anything recorded earlier is kept as it was.
+- **Accuracy:** IP-based location is approximate. It is usually right to the country and often to the city, but VPNs, mobile carriers and company networks can place people elsewhere, and private addresses can't be placed. The report says what share of traffic could be placed.
+- **Privacy:** an approximate location derived from an IP address can count as personal information under laws such as PIPEDA, Quebec's Law 25 and GDPR. Mention it in your privacy notice, and choose *Country* if you want to keep less. LinkHub deliberately does **not** record IP addresses, names or exact (GPS) positions, and it never asks visitors for location permission.
+- **Behind Cloudflare?** Set `TRUST_CLOUDFLARE_GEO=true` to use Cloudflare's country / city headers instead. Only do this if all traffic really comes through Cloudflare, otherwise the headers could be forged.
+- **Credit:** the DB-IP data is licensed CC BY 4.0, and the statistics screen shows the required "IP Geolocation by DB-IP" credit.
 
 ## Tracking codes (gtag & friends)
 

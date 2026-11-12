@@ -4,11 +4,14 @@ import { PlatformIcon } from '../platforms.jsx';
 import { useToast } from './toast.jsx';
 import { Chip, formatNumber } from './ui.jsx';
 import { RangePicker, RankedBars, Sparkline, StatTile, TrendChart } from './charts.jsx';
+import { LocationSection, RecentClicks } from './locations.jsx';
+import { useAuth } from './auth.jsx';
 
 const DEVICE_LABEL = { mobile: 'Mobile', tablet: 'Tablet', desktop: 'Desktop' };
 
 export default function AnalyticsTab({ businessId }) {
   const toast = useToast();
+  const { user } = useAuth();
   const [days, setDays] = useState(30);
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -64,7 +67,7 @@ export default function AnalyticsTab({ businessId }) {
                 <tr>
                   <th>Link</th>
                   <th>Clicks in range</th>
-                  <th className="num">Share</th>
+                  <th>Most clicks from</th>
                   <th className="num">All time</th>
                   <th>Trend</th>
                 </tr>
@@ -86,10 +89,10 @@ export default function AnalyticsTab({ businessId }) {
                         <span className="ranked-track" aria-hidden="true">
                           <span className="ranked-bar" style={{ width: `${l.clicks > 0 ? Math.max((l.clicks / maxClicks) * 100, 2) : 0}%` }} />
                         </span>
-                        <strong>{formatNumber(l.clicks)}</strong>
+                        <strong title={`${l.share}% of this page's clicks`}>{formatNumber(l.clicks)}</strong>
                       </div>
                     </td>
-                    <td className="num">{totals.clicks ? `${l.share}%` : '–'}</td>
+                    <td>{l.topLocation ? <span title={`${l.topLocation.clicks} clicks from ${l.topLocation.name}`}>{l.topLocation.name}</span> : <span className="muted">–</span>}</td>
                     <td className="num">{formatNumber(l.allTime)}</td>
                     <td><Sparkline values={l.series} width={80} /></td>
                   </tr>
@@ -99,6 +102,9 @@ export default function AnalyticsTab({ businessId }) {
           </div>
         )}
       </section>
+
+      <LocationSection locations={report.locations} isAdmin={user.role === 'admin'} />
+      <RecentClicks clicks={report.recentClicks} precision={report.locations.precision} />
 
       <div className="two-col">
         <section className="card" aria-label="Traffic sources">

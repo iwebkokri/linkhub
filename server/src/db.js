@@ -148,6 +148,12 @@ addColumnIfMissing('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0');
 addColumnIfMissing('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0'); // blocks re-use of a code
 addColumnIfMissing('users', 'must_change_password', 'INTEGER NOT NULL DEFAULT 0');
 addColumnIfMissing('users', 'password_changed_at', 'TEXT');
+// approximate visitor location, resolved from the IP at request time (the IP itself is never stored)
+for (const table of ['page_views', 'link_clicks']) {
+  addColumnIfMissing(table, 'country', "TEXT NOT NULL DEFAULT ''"); // ISO 3166 code, e.g. CA
+  addColumnIfMissing(table, 'region', "TEXT NOT NULL DEFAULT ''"); // province / state
+  addColumnIfMissing(table, 'city', "TEXT NOT NULL DEFAULT ''");
+}
 
 export function isUniqueViolation(err) {
   return err && typeof err.code === 'string' && err.code.startsWith('SQLITE_CONSTRAINT');

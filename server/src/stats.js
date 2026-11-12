@@ -1,5 +1,6 @@
 import { config } from './config.js';
 import { db } from './db.js';
+import { countryName, geoStatus, getPrecision, locate } from './geo.js';
 import { keyedHash } from './secrets.js';
 
 // ---- days ------------------------------------------------------------------
@@ -85,11 +86,11 @@ function cleanSource({ referrer, utm }, ownHost) {
 // ---- recording -------------------------------------------------------------
 
 const insertView = db.prepare(
-  'INSERT INTO page_views (business_id, day, visitor, source, device) VALUES (?, ?, ?, ?, ?)',
+  'INSERT INTO page_views (business_id, day, visitor, source, device, country, region, city) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
 );
 const bumpViews = db.prepare('UPDATE businesses SET views = views + 1 WHERE id = ?');
 const insertClick = db.prepare(
-  'INSERT INTO link_clicks (link_id, business_id, day, visitor, device) VALUES (?, ?, ?, ?, ?)',
+  'INSERT INTO link_clicks (link_id, business_id, day, visitor, device, country, region, city) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
 );
 const bumpClicks = db.prepare('UPDATE links SET clicks = clicks + 1 WHERE id = ?');
 
@@ -99,8 +100,9 @@ export function recordView(businessId, req, { referrer, utm } = {}) {
   const day = dayOf();
   const visitor = visitorId(req, day);
   if (isRepeat(`v:${businessId}:${visitor}`, config.viewDedupeSeconds)) return;
+  const geo = locate(req); // the IP is used for this lookup only and is never stored
   db.transaction(() => {
-    insertView.run(businessId, day, visitor, cleanSource({ referrer, utm }, req.hostname), deviceOf(ua));
+    insertView.run(businessId, day, visitor, cleanSource({ referrer, utm }, req.hostname), deviceOf(ua), geo.country, geo.region, geo.city);
     bumpViews.run(businessId);
   })();
 }
@@ -111,8 +113,9 @@ export function recordClick(link, req) {
   const day = dayOf();
   const visitor = visitorId(req, day);
   if (isRepeat(`c:${link.id}:${visitor}`, config.clickDedupeSeconds)) return;
+  const geo = locate(req);
   db.transaction(() => {
-    insertClick.run(link.id, link.business_id, day, visitor, deviceOf(ua));
+    insertClick.run(link.id, link.business_id, day, visitor, deviceOf(ua), geo.country, geo.region, geo.city);
     bumpClicks.run(link.id);
   })();
 }
@@ -131,6 +134,53 @@ const pct = (part, whole) => (whole ? Math.round((part / whole) * 1000) / 10 : 0
 
 function sum(arr, key) {
   return arr.reduce((t, x) => t + x[key], 0);
+}
+
+/**
+ * Where visits and clicks came from. `scope` is a SQL fragment over business_id (one business, or several).
+ * Countries and cities each list views and clicks side by side; `located` says how much of the traffic could be placed.
+ */
+function locationReport(scopeSql, scopeArgs, since) {
+  const q = (sql, ...args) => db.prepare(sql).all(...scopeArgs, since, ...args);
+
+  const merge = (viewRows, clickRows, keyOf, make) => {
+    const map = new Map();
+    for (const r of viewRows) map.set(keyOf(r), { ...make(r), views: r.n, clicks: 0 });
+    for (const r of clickRows) {
+      const k = keyOf(r);
+      const e = map.get(k) ?? { ...make(r), views: 0, clicks: 0 };
+      e.clicks = r.n;
+      map.set(k, e);
+    }
+    return [...map.values()].sort((a, b) => b.views + b.clicks - (a.views + a.clicks) || b.views - a.views).slice(0, 12);
+  };
+
+  const countries = merge(
+    q(`SELECT country, COUNT(*) AS n FROM page_views  WHERE ${scopeSql} AND day >= ? AND country != '' GROUP BY country`),
+    q(`SELECT country, COUNT(*) AS n FROM link_clicks WHERE ${scopeSql} AND day >= ? AND country != '' GROUP BY country`),
+    (r) => r.country,
+    (r) => ({ code: r.country, name: countryName(r.country) }),
+  );
+  const cities = merge(
+    q(`SELECT city, region, country, COUNT(*) AS n FROM page_views  WHERE ${scopeSql} AND day >= ? AND city != '' GROUP BY city, region, country`),
+    q(`SELECT city, region, country, COUNT(*) AS n FROM link_clicks WHERE ${scopeSql} AND day >= ? AND city != '' GROUP BY city, region, country`),
+    (r) => `${r.city}|${r.region}|${r.country}`,
+    (r) => ({ city: r.city, region: r.region, code: r.country, country: countryName(r.country) }),
+  );
+
+  const cover = (table) => {
+    const r = db.prepare(`SELECT COUNT(*) AS total, COALESCE(SUM(country != ''), 0) AS located FROM ${table} WHERE ${scopeSql} AND day >= ?`).get(...scopeArgs, since);
+    return { total: r.total, located: r.located };
+  };
+  const status = geoStatus();
+  return {
+    precision: getPrecision(), // 'off' | 'country' | 'region' | 'city' - what is being recorded NOW
+    databaseLoaded: status.loaded,
+    provider: status.provider,
+    countries,
+    cities,
+    located: { views: cover('page_views'), clicks: cover('link_clicks') },
+  };
 }
 
 /** Full report for one business. `visitors` is the sum of each day's unique visitors. */
@@ -182,11 +232,22 @@ export function businessReport(businessId, days) {
     if (!series.has(r.link_id)) series.set(r.link_id, new Map());
     series.get(r.link_id).set(r.day, r.n);
   }
+  // each link's strongest location (by clicks in this range)
+  const topByLink = new Map();
+  for (const r of db
+    .prepare(
+      "SELECT link_id, country, COUNT(*) AS n FROM link_clicks WHERE business_id = ? AND day >= ? AND country != '' GROUP BY link_id, country",
+    )
+    .all(businessId, since)) {
+    const cur = topByLink.get(r.link_id);
+    if (!cur || r.n > cur.clicks) topByLink.set(r.link_id, { code: r.country, name: countryName(r.country), clicks: r.n });
+  }
   const linkReport = links.map((l) => ({
     ...l,
     isActive: !!l.isActive,
     share: pct(l.clicks, totals.clicks),
     series: dates.map((d) => series.get(l.id)?.get(d) ?? 0),
+    topLocation: topByLink.get(l.id) ?? null,
   }));
 
   const sources = db
@@ -201,14 +262,45 @@ export function businessReport(businessId, days) {
     )
     .all(businessId, since);
 
-  return { days, since, timezone: config.timezone, totals, daily, links: linkReport, sources, devices };
+  // the latest clicks: anonymous (no IP, no identity) - just when, on which link, from roughly where, on what device
+  const recentClicks = db
+    .prepare(
+      `SELECT c.id, c.ts, c.country, c.region, c.city, c.device, l.title, l.platform
+         FROM link_clicks c JOIN links l ON l.id = c.link_id
+        WHERE c.business_id = ? ORDER BY c.id DESC LIMIT 25`,
+    )
+    .all(businessId)
+    .map((r) => ({
+      id: r.id,
+      time: `${r.ts.replace(' ', 'T')}Z`, // stored in UTC
+      title: r.title,
+      platform: r.platform,
+      device: r.device,
+      country: r.country,
+      countryName: countryName(r.country),
+      region: r.region,
+      city: r.city,
+    }));
+
+  return {
+    days,
+    since,
+    timezone: config.timezone,
+    totals,
+    daily,
+    links: linkReport,
+    sources,
+    devices,
+    locations: locationReport('business_id = ?', [businessId], since),
+    recentClicks,
+  };
 }
 
 /** Roll-up across several businesses (the ones the user may see). */
 export function overviewReport(businessIds, days) {
   const dates = dayRange(days);
   const since = dates[0];
-  const empty = { days, since, timezone: config.timezone, totals: { views: 0, visitors: 0, clicks: 0 }, daily: dates.map((date) => ({ date, views: 0, visitors: 0, clicks: 0 })), businesses: [] };
+  const empty = { days, since, timezone: config.timezone, totals: { views: 0, visitors: 0, clicks: 0 }, daily: dates.map((date) => ({ date, views: 0, visitors: 0, clicks: 0 })), businesses: [], locations: { precision: getPrecision(), databaseLoaded: geoStatus().loaded, provider: geoStatus().provider, countries: [], cities: [], located: { views: { total: 0, located: 0 }, clicks: { total: 0, located: 0 } } } };
   if (!businessIds.length) return empty;
 
   const marks = businessIds.map(() => '?').join(',');
@@ -249,5 +341,6 @@ export function overviewReport(businessIds, days) {
     totals: { views: sum(daily, 'views'), visitors: sum(daily, 'visitors'), clicks: sum(daily, 'clicks') },
     daily,
     businesses: perBusiness,
+    locations: locationReport(`business_id IN (${marks})`, businessIds, since),
   };
 }

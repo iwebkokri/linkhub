@@ -1,10 +1,73 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useToast } from './toast.jsx';
-import { Switch } from './ui.jsx';
+import { Chip, Segmented, Switch } from './ui.jsx';
 import TrackingFields from './TrackingFields.jsx';
 
 const norm = (t) => JSON.stringify({ ...t, ga4Id: t.ga4Id || null, gtmId: t.gtmId || null, metaPixelId: t.metaPixelId || null, tiktokPixelId: t.tiktokPixelId || null });
+
+const DETAIL = {
+  off: 'Nothing about location is recorded.',
+  country: 'Only the country (for example Canada).',
+  region: 'The country and the province / state (for example Ontario, Canada).',
+  city: 'The country, province / state and city (for example Toronto, Ontario, Canada).',
+};
+
+function LocationSettings() {
+  const toast = useToast();
+  const [state, setState] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.get('/api/settings/location').then(setState).catch((e) => toast.error(e.message));
+  }, [toast]);
+  if (!state) return null;
+
+  const change = async (precision) => {
+    setBusy(true);
+    try {
+      setState(await api.put('/api/settings/location', { precision }));
+      toast.success(precision === 'off' ? 'Visitor location turned off' : 'Visitor location detail saved');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const db = state.database;
+
+  return (
+    <section className="card" aria-label="Visitor location">
+      <h2>Visitor location</h2>
+      <p className="muted">
+        See roughly <strong>where</strong> visits and link clicks come from. The place is worked out from the visitor&rsquo;s IP address using a database on
+        this server; the IP address itself is <strong>never stored</strong> and nothing is sent to an outside service.
+      </p>
+      <div className="field">
+        <span className="field-label">How much detail to keep</span>
+        <Segmented
+          label="Location detail"
+          value={state.precision}
+          onChange={(p) => !busy && change(p)}
+          options={[{ value: 'off', label: 'Off' }, { value: 'country', label: 'Country' }, { value: 'region', label: 'Region' }, { value: 'city', label: 'City' }]}
+        />
+        <span className="hint">{DETAIL[state.precision]} Applies to new visits and clicks; what was recorded earlier stays as it was.</span>
+      </div>
+      <div className="field">
+        <span className="field-label">Location database</span>
+        {db.loaded ? (
+          <p className="db-status"><Chip tone="good">Installed</Chip> {db.provider} · {db.sizeMB} MB{db.builtAt ? ` · built ${db.builtAt.slice(0, 10)}` : ''}</p>
+        ) : (
+          <p className="db-status"><Chip tone="warn">Not installed</Chip> Nothing can be located yet. On the server, in the <code>server</code> folder, run <code>npm run geoip:update</code> (a free download, about 60 MB, refreshed monthly).</p>
+        )}
+      </div>
+      <p className="hint">
+        Privacy: an approximate location derived from an IP address can count as personal information under laws such as PIPEDA, Quebec&rsquo;s Law 25 and GDPR.
+        Mention it in your privacy notice, and choose <strong>Country</strong> if you want to keep less.
+      </p>
+    </section>
+  );
+}
 
 export default function Settings() {
   const toast = useToast();
@@ -69,6 +132,8 @@ export default function Settings() {
           <button className="btn btn-primary" disabled={busy || !dirty}>{busy ? 'Saving…' : 'Save'}</button>
         </div>
       </form>
+
+      <LocationSettings />
 
       <div className="card">
         <h3>Good to know</h3>

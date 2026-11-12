@@ -110,6 +110,13 @@ export const config = {
   // Extra words that may not appear in short passwords, e.g. your company or product name.
   weakPasswordWords: list(process.env.WEAK_PASSWORD_WORDS),
 
+  // ---- visitor location (approximate, from the IP address, looked up in a local database; the IP is never stored) ----
+  // Any MaxMind-format city database works (DB-IP Lite via `npm run geoip:update`, or MaxMind GeoLite2).
+  geoipDb: process.env.GEOIP_DB ? path.resolve(serverRoot, process.env.GEOIP_DB) : path.join(dataDir, 'geoip', 'dbip-city-lite.mmdb'),
+  // Behind Cloudflare you can use its country/city headers instead. Only enable this if ALL traffic really comes through
+  // Cloudflare, otherwise visitors could forge these headers.
+  trustCloudflareGeo: flag(process.env.TRUST_CLOUDFLARE_GEO, false),
+
   // ---- link safety (anti-phishing) ----
   blockedLinkDomains: list(process.env.BLOCKED_LINK_DOMAINS),
   allowPunycodeLinks: flag(process.env.ALLOW_PUNYCODE_LINKS, false),

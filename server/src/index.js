@@ -11,6 +11,7 @@ import { db } from './db.js';
 import { ensureAdmin } from './bootstrap.js';
 import { purgeSessions } from './auth.js';
 import { pruneAudit } from './audit.js';
+import { initGeo } from './geo.js';
 import { apiLimiter, pageLimiter } from './limits.js';
 import { extraHeaders, hostGuard, originGuard } from './security.js';
 import { pruneStats } from './stats.js';
@@ -26,6 +27,7 @@ import settingsRouter from './routes/settings.js';
 import auditRouter from './routes/audit.js';
 
 await ensureAdmin();
+const geo = await initGeo();
 
 const app = express();
 app.disable('x-powered-by');
@@ -191,6 +193,7 @@ const server = app.listen(config.port, config.host, () => {
   if (config.isProd && !config.allowedHosts.length) {
     console.warn('[security] PUBLIC_URL is not set: any Host name is accepted and share-preview links use the request host. Set PUBLIC_URL.');
   }
+  console.log(geo.loaded ? `[geo] visitor location: ${geo.provider} database loaded (${geo.sizeMB} MB)` : '[geo] visitor location: no database installed - run "npm run geoip:update" to enable it');
   if (config.isProd && !config.require2faAdmins) {
     console.warn('[security] Two-factor authentication is not required for administrators (REQUIRE_2FA_FOR_ADMINS=false).');
   }

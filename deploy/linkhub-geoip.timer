@@ -1,0 +1,12 @@
+# /etc/systemd/system/linkhub-geoip.timer  - sudo systemctl enable --now linkhub-geoip.timer
+# DB-IP publishes a new file at the start of each month; this runs on the 5th (and catches up if the server was off).
+[Unit]
+Description=Monthly refresh of the LinkHub visitor-location database
+
+[Timer]
+OnCalendar=*-*-05 04:30:00
+RandomizedDelaySec=2h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -27,6 +27,7 @@ const LABELS = {
   'link.updated': 'Edited a link',
   'link.deleted': 'Deleted a link',
   'settings.tracking_changed': 'Changed company-wide tracking',
+  'settings.location_changed': 'Changed visitor location detail',
 };
 const ALERTS = new Set(['auth.login_failed', 'auth.2fa_failed', 'user.password_reset', 'user.2fa_reset', 'auth.2fa_disabled', 'business.deleted', 'user.deleted']);
 
